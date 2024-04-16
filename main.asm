@@ -2,7 +2,6 @@
 ; Calculator
 
 .orig x3000
-
 ld r1, sixtyFourBit?
 brnp sixtyFourBit
 sixteenBit jsr calculator16 ; will jump to subroutine for 16 bit calculator
@@ -25,9 +24,9 @@ calculator16:
     and r1, r1, x0
     and r2, r2, x0
     and r3, r3, x0
-    add r1, r1, #-7
-    add r2, r2, #0
-    jsr multiply16
+    add r1, r1, #10
+    add r2, r2, #3
+    jsr divide16
     
     
     ld r7, calculator16_saveR7
@@ -112,17 +111,50 @@ multiply16:
     multiply16_saveR4 .blkw 1 ; stores the value of r4 from before the function call
     multiply16_saveR7 .blkw 1
 
+; Performrs integer division of r3 = r1 / r2
+divide16:
+    st r4, divide16_saveR4 ; Saves value of r4
+    st r7, divide16_saveR7 ; saves value of r7
+    and r4, r4, #0
+
+    add r1, r1, #0 ; Used to check state of r1
+    brz divide16_zero ; output will be 0
+    
+    add r2, r2, #0 ; Used to check state of r2
+    brz divide16_zeroError ; sets mathError flag
+
+    jsr checkNegative16
+
+    divide16_perform and r3, r3, #0 ; Resets r3 to 0, so that it can store the product
+    not r2, r2
+    add r2, r2, #1
+    divide16_loop add r3, r3, #1 ; Division is performed by repeatedly subtracting r2 from r1. Ends when r1 is negative
+    add r1, r1, r2 
+    brzp divide16_loop 
+    add r3, r3, #-1
+    
+    
+    add r4, r4, #0 ; Used to check state of r4. If 0, then product is positive, otherwise it is negative
+    brz divide16_exit
+    not r3, r3 ; r3 is negated
+    add r3, r3, #1
+
+    divide16_exit ld r4, divide16_saveR4 ; Reverts the value of r4
+    ld r7, divide16_saveR7
+    ret
+
+    divide16_zero and r3, r3, #0 ; r3 is set to 0
+    brnzp divide16_exit
+    
+    divide16_zeroError and r3, r3, #0
+    not r3, r3
+    sti r3, divide16_mathError
+    brnzp divide16_exit
 
 
-
-
-
-
-
-
-
-
-
+    divide16_saveR4 .blkw 1 ; stores the value of r4 from before the function call
+    divide16_saveR7 .blkw 1
+    divide16_mathError .fill xfcff
 
 
 
