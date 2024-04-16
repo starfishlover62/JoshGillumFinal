@@ -25,9 +25,9 @@ calculator16:
     and r1, r1, x0
     and r2, r2, x0
     and r3, r3, x0
-    add r1, r1, #-7
-    add r2, r2, #-4
-    jsr subtract16
+    add r1, r1, #7
+    add r2, r2, #0
+    jsr multiply16
     
     
     ld r7, calculator16_saveR7
@@ -46,7 +46,9 @@ subtract16:
     ret
 
 multiply16:
-    ; Checkes if either of the operands are 0
+    ; Checks state of operands
+    and r3, r3, #0
+    st r3, multiply16_negativeValue
     add r1, r1, #0
     brz multiply16_zero
     brn multiply16_negativeR1
