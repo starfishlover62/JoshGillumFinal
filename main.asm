@@ -20,12 +20,11 @@ prettyPrint? .fill x0000
 .orig x3020
 calculator16:
     st r7, calculator16_saveR7
-
-    and r1, r1, x0
-    and r2, r2, x0
+    
+    ld r1, one
+    ld r2, two
     and r3, r3, x0
-    add r1, r1, #10
-    add r2, r2, #3
+
     jsr divide16
     
     
@@ -33,6 +32,8 @@ calculator16:
     ret
     
     calculator16_saveR7 .blkw 1
+    one .fill #10
+    two .fill #3
 
 add16:
     add r3, r1, r2
@@ -123,9 +124,9 @@ divide16:
     add r2, r2, #0 ; Used to check state of r2
     brz divide16_zeroError ; sets mathError flag
 
-    jsr checkNegative16
+    jsr checkNegative16 ; Converts r1 and r2 to positive. r4 indicates negativity state
 
-    divide16_perform and r3, r3, #0 ; Resets r3 to 0, so that it can store the product
+    divide16_perform and r3, r3, #0 ; Sets r3 to 0, so that it can store the product
     not r2, r2
     add r2, r2, #1
     divide16_loop add r3, r3, #1 ; Division is performed by repeatedly subtracting r2 from r1. Ends when r1 is negative
@@ -146,9 +147,9 @@ divide16:
     divide16_zero and r3, r3, #0 ; r3 is set to 0
     brnzp divide16_exit
     
-    divide16_zeroError and r3, r3, #0
+    divide16_zeroError and r3, r3, #0 ; Occurs when attempting to divide by 0.
     not r3, r3
-    sti r3, divide16_mathError
+    sti r3, divide16_mathError ; Sets flag mathError flag to -1 to indicate an error occured
     brnzp divide16_exit
 
 
