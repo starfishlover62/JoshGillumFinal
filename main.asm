@@ -26,7 +26,7 @@ calculator16:
     and r2, r2, x0
     and r3, r3, x0
     add r1, r1, #-7
-    add r2, r2, #6
+    add r2, r2, #0
     jsr multiply16
     
     
@@ -44,7 +44,8 @@ subtract16:
     add r3, r3, #1
     add r3, r1, r3
     ret
-    
+
+; inverts r4 for each negative number in r1 and r2. Inverts the r1 or r2 if it is negative
 checkNegative16:
     add r1, r1, #0
     brzp checkNegative16_r2
@@ -63,17 +64,18 @@ checkNegative16:
 
 multiply16:
     st r4, multiply16_saveR4 ; Saves value of r4
+    st r7, multiply16_saveR7 ; saves value of r7
     and r4, r4, #0
     
     add r1, r1, #0 ; Used to check state of r1
     brz multiply16_zero ; output will be 0
-    brn multiply16_negativeR1 ; Indicates that product should be negative, and makes r1 positive
     
     ; Does same as what was just done to r1, but with r2
     multiply16_checkR2 add r2, r2, #0
     brz multiply16_zero
-    brn multiply16_negativeR2 ; If both r1 and r2 are negative, the product will be positive
     
+    
+    jsr checkNegative16 ; converts r1 and r2 to positive numbers. r4 is negative 1 if product is to be negative
     multiply16_performCheck not r3, r2 ; Checks if r2 is larger or smaller than r1
     add r3, r3, #1 ; r3 is the negative of r2
     add r3, r1, r3 ; positive = r1 bigger, negative = r2 bigger, zero = they are the same
@@ -95,34 +97,20 @@ multiply16:
     add r2, r2, #-1
     brp multiply16_loop ; Loops so long as r2 is positive
     
-    
-    
-    
     add r4, r4, #0 ; Used to check state of r4. If 0, then product is positive, otherwise it is negative
     brz multiply16_exit
     not r3, r3 ; r3 is negated
     add r3, r3, #1
     
     multiply16_exit ld r4, multiply16_saveR4 ; Reverts the value of r4
+    ld r7, multiply16_saveR7
     ret
     
     multiply16_zero and r3, r3, #0 ; r3 is set to 0
-    ld r4, multiply16_saveR4 ; Reverts the value of r4
-    ret
-    
-    ; Makes r1 positive and negates r4
-    multiply16_negativeR1 not r1, r1 
-    add r1, r1, #1
-    not r4, r4
-    brnzp multiply16_checkR2 ; returns to check r2 next
-    
-    ; Makes r2 positive and negates r4
-    multiply16_negativeR2 not r2, r2
-    add r2, r2, #1
-    not r4, r4
-    brnzp multiply16_performCheck ; returns to check whether r2 is smaller or larger than r1
+    brnzp multiply16_exit
 
     multiply16_saveR4 .blkw 1 ; stores the value of r4 from before the function call
+    multiply16_saveR7 .blkw 1
 
 
 
