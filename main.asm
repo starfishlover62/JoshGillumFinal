@@ -44,6 +44,22 @@ subtract16:
     add r3, r3, #1
     add r3, r1, r3
     ret
+    
+checkNegative16:
+    add r1, r1, #0
+    brzp checkNegative16_r2
+    not r1, r1
+    add r1, r1, #1
+    not r4, r4
+    
+    checkNegative16_r2 add r2, r2, #0
+    brzp checkNegative16_exit
+    not r2, r2
+    add r2, r2, #1
+    not r4, r4
+    
+    checkNegative16_exit ret
+    
 
 multiply16:
     st r4, multiply16_saveR4 ; Saves value of r4
