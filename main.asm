@@ -25,8 +25,8 @@ calculator16:
     and r1, r1, x0
     and r2, r2, x0
     and r3, r3, x0
-    add r1, r1, #7
-    add r2, r2, #0
+    add r1, r1, #-7
+    add r2, r2, #6
     jsr multiply16
     
     
@@ -47,8 +47,8 @@ subtract16:
 
 multiply16:
     ; Checks state of operands
-    and r3, r3, #0
-    st r3, multiply16_negativeValue
+    st r4, multiply16_saveR4
+    and r4, r4, #0
     add r1, r1, #0
     brz multiply16_zero
     brn multiply16_negativeR1
@@ -77,8 +77,8 @@ multiply16:
     
     
     
-    st r4, multiply16_saveR4
-    ld r4, multiply16_negativeValue
+    
+    add r4, r4, #0
     brz multiply16_exit
     not r3, r3
     add r3, r3, #1
@@ -96,19 +96,13 @@ multiply16:
     
     multiply16_negativeR1 not r1, r1 ; Makes r1 positive
     add r1, r1, #1
-    ld r3, multiply16_negativeValue ; Inverts the value of multiply16_negativeValue
-    not r3, r3
-    st r3, multiply16_negativeValue
+    not r4, r4
     brnzp multiply16_checkR2
     
     multiply16_negativeR2 not r2, r2 ; Makes r2 positive
     add r2, r2, #1
-    ld r3, multiply16_negativeValue ; Inverts the value of multiply16_negativeValue
-    not r3, r3
-    st r3, multiply16_negativeValue
+    not r4, r4
     brnzp multiply16_performCheck
-    
-    multiply16_negativeValue .fill x0000
 
 
 
