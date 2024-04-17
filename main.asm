@@ -179,30 +179,28 @@ getInput:
     
     getInput_loop trap x20
     
-    ld r4, getInput_enter
+    ld r4, getInput_enter ; Loop ends if enter is pressed
     add r4, r4, r0
     brz getInput_exit
     
-    ld r4, getInput_carriageReturn
+    ld r4, getInput_carriageReturn ; Loop ends if carriage return is pressed (unsure if necessary. May depend on keyboard)
     add r4, r4, r0
     brz getInput_exit
     
-    ld r4, getInput_backspace
+    ld r4, getInput_backspace ; Last input character will be removed from storage if backspace is pressed
     add r4, r4, r0
     brnp getInput_storeChar
-    and r0, r0, #0
-    ld r2, getInput_storage
+    and r0, r0, #0 ; Will be used to store 0 over the last character
+    ld r2, getInput_storage ; Used to determine if r1 is at the first character of storage
     not r2, r2
     add r2, r2, #1
     add r2, r2, r1
-    brnz getInput_backspaceReset
-    add r1, r1, #-1
+    brnz getInput_backspaceReset ; If positive, then at least character is already in storage
+    add r1, r1, #-1 ; Moves pointer to previous character
+    str r0, r1, #0 ; Writes 0 over it
+    add r0, r0, #8 ; backspace ASCII code for displaying
     
-    str r0, r1, #0
-    add r0, r0, #8
-    
-    getInput_backspaceReset
-    ld r2, getInput_max
+    getInput_backspaceReset ld r2, getInput_max ; Resets r2
     brnzp getInput_display
     
     
