@@ -168,6 +168,15 @@ divide16:
 getInput:
     ld r1 getInput_storage
     ld r2, getInput_max ; Limit Address for storage. Storage can go x5000 to r2, not including r2. Max character limit is 255
+    
+    and r0, r0, #0
+    getInput_clear str r0, r1, #0
+    add r1, r1, #1
+    add r3, r2, r1
+    brn getInput_clear
+    
+    ld r1 getInput_storage
+    
     getInput_loop trap x20
     
     ld r4, getInput_enter
