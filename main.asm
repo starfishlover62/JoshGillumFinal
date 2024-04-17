@@ -21,6 +21,9 @@ prettyPrint? .fill x0000
 calculator16:
     st r7, calculator16_saveR7
     
+    ld r0, inputAddr
+    jsrr r0
+    
     ld r1, one
     ld r2, two
     and r3, r3, x0
@@ -34,6 +37,7 @@ calculator16:
     calculator16_saveR7 .blkw 1
     one .fill #10
     two .fill #3
+    inputAddr .fill getInput
 
 add16:
     add r3, r1, r2
@@ -157,8 +161,61 @@ divide16:
     divide16_saveR7 .blkw 1
     divide16_mathError .fill xfcff
 
+.end
 
-
+.orig x5000
+.blkw x101
+getInput:
+    ld r1 getInput_storage
+    ld r2, getInput_max ; Limit Address for storage. Storage can go x5000 to r2, not including r2. Max character limit is 255
+    getInput_loop trap x20
+    
+    ld r4, getInput_enter
+    add r4, r4, r0
+    brz getInput_exit
+    
+    ld r4, getInput_carriageReturn
+    add r4, r4, r0
+    brz getInput_exit
+    
+    ld r4, getInput_backspace
+    add r4, r4, r0
+    brnp getInput_storeChar
+    and r0, r0, #0
+    ld r2, getInput_storage
+    not r2, r2
+    add r2, r2, #1
+    add r2, r2, r1
+    brnz getInput_backspaceReset
+    add r1, r1, #-1
+    
+    str r0, r1, #0
+    add r0, r0, #8
+    
+    getInput_backspaceReset
+    ld r2, getInput_max
+    brnzp getInput_display
+    
+    
+    
+    getInput_storeChar str r0, r1, #0
+    add r1, r1, #1
+    
+    getInput_display trap x21
+    add r3, r2, r1
+    brn getInput_loop
+    
+    getInput_exit ret
+    
+    getInput_storage .fill x5000
+    getInput_max .fill x-5100
+    
+    ; Negative ASCII values of control characters
+    getInput_enter .fill #-10
+    getInput_carriageReturn .fill #-13
+    getInput_backspace .fill #-8
+    getInput_delete .fill #-127
+    getInput_escape .fill #-27
 
 
 
