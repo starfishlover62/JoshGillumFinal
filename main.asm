@@ -16,10 +16,11 @@ prettyPrint? .fill x0000 ; adds commas to numbers greater than 999
 calculator:
     st r7, calculator_saveR7
     
-    ld r0, inputAddr
-    jsrr r0
+    ld r6, inputAddr
+    jsrr r6
 
-    jsr asciiToInt
+    ld r6, parse
+    jsrr r6
     
     
     ld r7, calculator_saveR7
@@ -29,6 +30,7 @@ calculator:
     one .fill #10
     two .fill #3
     inputAddr .fill getInput
+    parse .fill parseString
 
 addition:
     add r3, r1, r2
@@ -264,11 +266,10 @@ getInput_saveR4 .fill x0000
 
 ;r1 is address of first element
 ;r2 is address of last element
-;r3 used
+;r3 Sum returned
 ;r4 used
 ;r5 used
 ;r6 used
-; returns sum in r3
 asciiToInt:
 ; Saves Registers
 st r0, asciiToInt_saveR0
@@ -364,25 +365,59 @@ asciiToInt_saveR6 .blkw 1
 ;
 parseString:
 st r0, parseString_inputStart
+st r1, parseString_saveR1
+st r2, parseString_saveR2
 st r7, parseString_saveReturn
+and r1, r1, #0
+and r2, r2, #0
 parseString_getNumbers ldr r3, r0, #0
-;brz ... ; end of string reached
+brz parseString_getInstructions ; end of string reached
 
 ld r4, parseString_zero
-add r4, r4, r0 ; Checks if the ascii value is less than that of "0"
+add r4, r4, r3 ; Checks if the ascii value is less than that of "0"
 brn parseString_notNumber
 ld r4, parseString_nine 
-add r4, r4, r0 ; Checks if the ascii value is greater than that of "9"
+add r4, r4, r3 ; Checks if the ascii value is greater than that of "9"
 brp parseString_notNumber
+
+add r1, r1, #0
+brnp parseStringNumbers_incrementR2
+add r1, r1, r0
+and r2, r2, #0
+add r2, r2, r0
+add r0, r0, #1
+brnzp parseString_getNumbers
+parseStringNumbers_incrementR2
+    add r2, r2, #1
+    add r0, r0, #1
+    brnzp parseString_getNumbers
 
 
 
 parseString_notNumber 
     add r1, r1, #0
     brz parseString_jumpGetNumbers
-    and r2, r2, #0
-    add r2, r2, r0
     jsr asciiToInt
+    ld r5, parseString_valuesLast
+    str r3, r5, #0 ; Stores r3 in the values array
+    str r5, r1, #0 ; Stores the address of the value into r1
+    add r5, r5, #1 ; Increments end of values array pointer and stores in memory
+    st r5, parseString_valuesLast
+    add r1, r1, #1
+    
+    not r2, r2 ; Inverses r2, to see when r1 is equal to it
+    add r2, r2, #1
+parseString_notNumberAddress
+    add r3, r1, r2
+    brp parseString_notNumberResetPointers
+    ld r3, parseString_space
+    str r3, r1, #0
+    add r1, r1, #1
+    brnzp parseString_notNumberAddress
+
+parseString_notNumberResetPointers
+    and r1, r1, #0
+    and r2, r2, #0
     
     
 parseString_jumpGetNumbers
@@ -390,8 +425,11 @@ parseString_jumpGetNumbers
     brnzp parseString_getNumbers
 
 
+parseString_getInstructions
+ret
 
-parseString_space .fill x-20
+
+parseString_space .fill x20
 parseString_paranthesesOpen .fill x-28
 parseString_paranthesesClose .fill x-29
 parseString_cross .fill x-2B
@@ -403,6 +441,8 @@ parseString_nine .fill x-39
 
 parseString_inputStart .blkw 1
 parseString_saveReturn .blkw 1
+parseString_saveR1 .blkw 1
+parseString_saveR2 .blkw 1
 parseString_values .fill x5000
 parseString_valuesLast .fill x5000 ; Address of last value in array
 parseString_Instructions .fill x6000
