@@ -193,7 +193,7 @@ getInput_loop trap x20 ; Gets a character from the user
     
     ld r4, getInput_backspace ; Last input character will be removed from storage if backspace is pressed
     add r4, r4, r0
-    brnp getInput_checkDigit
+    brnp getInput_storeChar ; Change to checkDigit to only allow 0-9
     and r0, r0, #0 ; Will be used to store 0 over the last character
     ld r2, getInput_storage ; Used to determine if r1 is at the first character of storage
     not r2, r2
@@ -208,12 +208,12 @@ getInput_backspaceReset ld r2, getInput_max ; Resets r2
     brnzp getInput_display
     
     ; Checks if the character is a digit. Does not store it if it isnt
-getInput_checkDigit ld r4, getInput_0
-    add r4, r4, r0 ; Checks if the ascii value is less than that of "0"
-    brn getInput_loop
-    ld r4, getInput_9 
-    add r4, r4, r0 ; Checks if the ascii value is greater than that of "9"
-    brp getInput_loop
+; getInput_checkDigit ld r4, getInput_0
+;     add r4, r4, r0 ; Checks if the ascii value is less than that of "0"
+;     brn getInput_loop
+;     ld r4, getInput_9 
+;     add r4, r4, r0 ; Checks if the ascii value is greater than that of "9"
+;     brp getInput_loop
     
     
 getInput_storeChar str r0, r1, #0 ; Stores character to array
@@ -268,7 +268,16 @@ getInput_saveR4 .fill x0000
 ;r4 used
 ;r5 used
 ;r6 used
+; returns sum in r3
 asciiToInt:
+; Saves Registers
+st r0, asciiToInt_saveR0
+st r1, asciiToInt_saveR1
+st r2, asciiToInt_saveR2
+st r4, asciiToInt_saveR4
+st r5, asciiToInt_saveR5
+st r6, asciiToInt_saveR6
+
 not r2, r2
 add r2, r2, #1 ; Inverses r2, for checking if the last element is reached
 ld r6, asciiToInt_stack
@@ -317,29 +326,86 @@ brnzp asciiToInt_mainLoop
 
 
 asciiToInt_exit
+and r3, r3, #0
+add r3, r3, r1
+ld r0, asciiToInt_saveR0
+ld r1, asciiToInt_saveR1
+ld r2, asciiToInt_saveR2
+ld r4, asciiToInt_saveR4
+ld r5, asciiToInt_saveR5
+ld r6, asciiToInt_saveR6
 ret
-asciiToInt_stack .fill x4200
-asciiToInt_offset .fill x-30
+
+asciiToInt_stack .fill x4200 ; Stack starting address
+asciiToInt_offset .fill x-30 ; Offset from ASCII to int
+
+; Register storage
+asciiToInt_saveR0 .blkw 1
+asciiToInt_saveR1 .blkw 1
+asciiToInt_saveR2 .blkw 1
+asciiToInt_saveR4 .blkw 1
+asciiToInt_saveR5 .blkw 1
+asciiToInt_saveR6 .blkw 1
 
 
 ;r0 points to start of string
 ;r1 points to start of number
 ;r2 points to end of number
-;character values
+;r3 stores current value
 ;
-; ( x28
-; ) x29
-; + x2B
-; - x2D
-; * x2A
-; / x2F
+;   character / value   /   operation code:
+;   NULL        x0          0   (END OF Instruction)
+;   (           x28         1
+;   )           x29         2
+;   +           x2B         3
+;   -           x2D         4
+;   *           x2A         5
+;   /           x2F         6
 ;
 parseString:
+st r0, parseString_inputStart
+st r7, parseString_saveReturn
+parseString_getNumbers ldr r3, r0, #0
+;brz ... ; end of string reached
+
+ld r4, parseString_zero
+add r4, r4, r0 ; Checks if the ascii value is less than that of "0"
+brn parseString_notNumber
+ld r4, parseString_nine 
+add r4, r4, r0 ; Checks if the ascii value is greater than that of "9"
+brp parseString_notNumber
 
 
+
+parseString_notNumber 
+    add r1, r1, #0
+    brz parseString_jumpGetNumbers
+    and r2, r2, #0
+    add r2, r2, r0
+    jsr asciiToInt
+    
+    
+parseString_jumpGetNumbers
+    add r0, r0, #1
+    brnzp parseString_getNumbers
+
+
+
+parseString_space .fill x-20
+parseString_paranthesesOpen .fill x-28
+parseString_paranthesesClose .fill x-29
+parseString_cross .fill x-2B
+parseString_dash .fill x-2D
+parseString_star .fill x-2A
+parseString_slash .fill x-2F
+parseString_zero .fill x-30
+parseString_nine .fill x-39
+
+parseString_inputStart .blkw 1
+parseString_saveReturn .blkw 1
 parseString_values .fill x5000
-parseString_valuesLast .blkw 1 ; Address of last value in array
+parseString_valuesLast .fill x5000 ; Address of last value in array
 parseString_Instructions .fill x6000
-parseString_InstructionsLast .blkw 1 ; Address of last value in array
+parseString_InstructionsLast .fill x6000 ; Address of last value in array
     
 .end
