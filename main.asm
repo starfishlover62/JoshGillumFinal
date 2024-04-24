@@ -323,6 +323,17 @@ asciiToInt_offset .fill x-30
 
 
 ;r0 points to start of string
+;r1 points to start of number
+;r2 points to end of number
+;character values
+;
+; ( x28
+; ) x29
+; + x2B
+; - x2D
+; * x2A
+; / x2F
+;
 parseString:
 
 
