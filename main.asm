@@ -264,6 +264,10 @@ getInput_saveR4 .fill x0000
 
 ;r1 is address of first element
 ;r2 is address of last element
+;r3 used
+;r4 used
+;r5 used
+;r6 used
 asciiToInt:
 not r2, r2
 add r2, r2, #1 ; Inverses r2, for checking if the last element is reached
@@ -285,7 +289,7 @@ not r5, r5 ; Used for checking if stack is empty
 add r5, r5, #1
 
 asciiToInt_mainLoop add r4, r5, r6
-brnz asciiToInt_exit ; If negative, then stack is empty
+brnz asciiToInt_exit ; If negative or zero, stack is empty
 add r6, r6, #-1
 ldr r2, r6, #0 ; Gets current ascii value
 
@@ -306,7 +310,7 @@ add r4, r4, r3 ; r4 will be equal to r3 added 10 times
 add r2, r2, #-1
 brp asciiToInt_powerLoop 
 
-and r3, r3, #0
+and r3, r3, #0 ; Applies new power to r3
 add r3, r3, r4
 
 brnzp asciiToInt_mainLoop
@@ -323,6 +327,8 @@ parseString:
 
 
 parseString_values .fill x5000
+parseString_valuesLast .blkw 1 ; Address of last value in array
 parseString_Instructions .fill x6000
+parseString_InstructionsLast .blkw 1 ; Address of last value in array
     
 .end
