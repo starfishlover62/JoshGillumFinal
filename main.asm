@@ -434,7 +434,7 @@ and r3, r3, #0
 
 parseString_parenthesisStart
     ldr r7, r0, #0 ; loads current character
-    brz parseString_exit
+    brz parseString_checkSyntaxError
     
     
     ld r6, parseString_space ; mask for space
@@ -464,11 +464,24 @@ parseString_checkParenthesisClose
     brnzp parseString_parenthesisIncrementR0
 
 parseString_parenthesisIncrementR0
-add r0, r0, #1
-brnzp parseString_parenthesisStart
+    add r0, r0, #1
+    brnzp parseString_parenthesisStart
 
-parseString_exit ld r7, parseString_saveReturn
-ret
+
+parseString_checkSyntaxError
+    add r3, r3, #0
+    brz parseString_getInstructions
+    ld r1, parseString_syntaxError
+    and r2, r2, #0
+    add r2, r2, #-1
+    str r2, r1, #0
+
+parseString_getInstructions
+    
+
+parseString_exit 
+    ld r7, parseString_saveReturn
+    ret
 
 
 parseString_normalSpace .fill x20
@@ -490,5 +503,6 @@ parseString_values .fill x5000
 parseString_valuesLast .fill x5000 ; Address of last value in array
 parseString_Instructions .fill x6000
 parseString_InstructionsLast .fill x6000 ; Address of last value in array
+parseString_syntaxError .fill x3011
     
 .end
