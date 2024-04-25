@@ -371,7 +371,7 @@ st r7, parseString_saveReturn
 and r1, r1, #0
 and r2, r2, #0
 parseString_getNumbers ldr r3, r0, #0
-brz parseString_getInstructions ; end of string reached
+brz parseString_getParenthesis ; end of string reached
 
 ld r4, parseString_zero
 add r4, r4, r3 ; Checks if the ascii value is less than that of "0"
@@ -407,10 +407,10 @@ parseString_notNumber
     
     not r2, r2 ; Inverses r2, to see when r1 is equal to it
     add r2, r2, #1
-parseString_notNumberAddress
-    add r3, r1, r2
+parseString_notNumberAddress ; Fills the rest of the input up to r2 with space (x20)
+    add r3, r1, r2 ; Checks if r1 has filled in r2 yet
     brp parseString_notNumberResetPointers
-    ld r3, parseString_space
+    ld r3, parseString_normalspace ; Otherwise fills r1's addres with a space and increments r1
     str r3, r1, #0
     add r1, r1, #1
     brnzp parseString_notNumberAddress
@@ -421,17 +421,60 @@ parseString_notNumberResetPointers
     
     
 parseString_jumpGetNumbers
-    add r0, r0, #1
+    add r0, r0, #1 ; Moves r0 to next character of input
     brnzp parseString_getNumbers
 
 
-parseString_getInstructions
+parseString_getParenthesis
+ld r0, parseString_inputStart
+and r1, r1, #0
+add r1, r1, r0
+and r2, r2, #0
+and r3, r3, #0
+
+parseString_parenthesisStart
+    ldr r7, r0, #0 ; loads current character
+    brz parseString_exit
+    
+    
+    ld r6, parseString_space ; mask for space
+    add r6, r6, r7
+    brz parseString_parenthesisIncrementR0 ; If space, skip other checks
+
+parseString_checkParenthesisOpen
+    ld r6, parseString_parenthesisOpen
+    add r6, r6, r7
+    brnp parseString_checkParenthesisClose ; checks next character if this one is not open parenthesis
+    add r3, r3, #-1 ; increments depth counter
+    add r4, r2, r3 ; checks if current depth is greater than found max depth
+    brzp parseString_parenthesisIncrementR0
+    and r2, r2, #0
+    add r2, r2, r3 ; sets found max depth to value of current depth
+    not r2, r2
+    add r2, r2, #1
+    and r1, r1, #0 ; stores address of deepest open parenthesis
+    add r1, r1, r0
+    
+
+parseString_checkParenthesisClose
+    ld r6, parseString_parenthesisClose
+    add r6, r6, r7
+    brnp parseString_parenthesisIncrementR0
+    add r3, r3, #1
+    brnzp parseString_parenthesisIncrementR0
+
+parseString_parenthesisIncrementR0
+add r0, r0, #1
+brnzp parseString_parenthesisStart
+
+parseString_exit ld r7, parseString_saveReturn
 ret
 
 
-parseString_space .fill x20
-parseString_paranthesesOpen .fill x-28
-parseString_paranthesesClose .fill x-29
+parseString_normalSpace .fill x20
+parseString_space .fill x-20
+parseString_parenthesisOpen .fill x-28
+parseString_parenthesisClose .fill x-29
 parseString_cross .fill x-2B
 parseString_dash .fill x-2D
 parseString_star .fill x-2A
