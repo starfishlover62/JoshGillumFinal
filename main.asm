@@ -2,9 +2,6 @@
 ; Calculator
 
 .orig x3000
-
-and r1, r1, #0
-sti r1, mathError
     
 ld r1, input ; Gets input from the user
 jsrr r1
@@ -24,7 +21,6 @@ input .fill getInput
 parse .fill parseString
 perform .fill performOperations
 print .fill display
-mathError .fill xfcff
     
 
 ; r1 + r2 = r3
@@ -59,12 +55,10 @@ checkNegative:
     
 
 multiply: ; r3 = r1 * r2
-
-    ; Saves registers that are changed.
     st r1, multiply_saveR1
     st r2, multiply_saveR2
-    st r4, multiply_saveR4
-    st r7, multiply_saveR7
+    st r4, multiply_saveR4 ; Saves value of r4
+    st r7, multiply_saveR7 ; saves value of r7
     
     
     add r1, r1, #0 ; Used to check state of r1
@@ -103,29 +97,27 @@ multiply: ; r3 = r1 * r2
     add r3, r3, #1
     
     multiply_exit 
-    ; Restores registers
     ld r1, multiply_saveR1
     ld r2, multiply_saveR2
-    ld r4, multiply_saveR4
+    ld r4, multiply_saveR4 ; Reverts the value of r4
     ld r7, multiply_saveR7
     ret
     
     multiply_zero and r3, r3, #0 ; r3 is set to 0
     brnzp multiply_exit
 
-    ; Stores register values from before function changed them
     multiply_saveR1 .blkw 1
     multiply_saveR2 .blkw 1
-    multiply_saveR4 .blkw 1
+    multiply_saveR4 .blkw 1 ; stores the value of r4 from before the function call
     multiply_saveR7 .blkw 1
 
 ; Performs integer division of r3 = r1 / r2
 divide:
-    ; Register storage
     st r1, divide_saveR1
     st r2, divide_saveR2
-    st r4, divide_saveR4
-    st r7, divide_saveR7
+    st r4, divide_saveR4 ; Saves value of r4
+    st r7, divide_saveR7 ; saves value of r7
+    and r4, r4, #0
 
     add r1, r1, #0 ; Used to check state of r1
     brz divide_zero ; output will be 0
@@ -150,10 +142,9 @@ divide:
     add r3, r3, #1
 
     divide_exit 
-    ; Restores registers
     ld r1, divide_saveR1
     ld r2, divide_saveR2
-    ld r4, divide_saveR4
+    ld r4, divide_saveR4 ; Reverts the value of r4
     ld r7, divide_saveR7
     ret
 
@@ -165,10 +156,10 @@ divide:
     sti r3, divide_mathError ; Sets flag mathError flag to -1 to indicate an error occured
     brnzp divide_exit
 
-    ; Stores register values from before function changed them
+
     divide_saveR1 .blkw 1
     divide_saveR2 .blkw 1
-    divide_saveR4 .blkw 1
+    divide_saveR4 .blkw 1 ; stores the value of r4 from before the function call
     divide_saveR7 .blkw 1
     divide_mathError .fill xfcff
 
@@ -986,17 +977,7 @@ performOperations_divide .fill divide
 
 display: ; Takes number in r5
 
-    st r7, display_saveReturn ; Checks if a math error occured (dividing by zero)
-    ldi r6, display_mathError
-    brz display_noError
-    and r0, r0, #0
-    add r0, r0, #10 ; Displays newline
-    trap x21
-    lea r0, display_errorText
-    trap x22
-    brnzp display_return
-    
-display_noError
+    st r7, display_saveReturn
     lea r6, display_stack ; Stack for storing numbers, since this function works from the right to the left
     add r6, r6, #1
     
@@ -1077,8 +1058,6 @@ display_dash .fill #45
 display_offset .fill x30
 display_equal .fill x3D
 display_space .fill x20
-display_mathError .fill xfcff
-display_errorText .stringz "MATH ERROR"
 display_stack .blkw x100
 
 
