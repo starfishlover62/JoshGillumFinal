@@ -626,8 +626,7 @@ parseString_loadStar
     ld r4, parseString_star
     ldr, r3, r2, #0
     add r3, r3, r4
-    brnp parseString_multiplyAddR1 ; Not a multiply sign
-    brz parseString_multiplyMinusR2
+    brz parseString_multiplyMinusR2 ; not a multiplication sign
     
     ld r4, parseString_slash
     ldr, r3, r2, #0
@@ -748,7 +747,7 @@ parseString_loadCross
     ld r4, parseString_dash
     ldr, r3, r2, #0
     add r3, r3, r4
-    brnp parseString_addAddR1 ; Not a divide sign
+    brnp parseString_addAddR1 ; Not a minus sign
     
     
 parseString_addMinusR2 add r2, r2, #-1 ; Goes back a location
@@ -914,7 +913,7 @@ loop
     add r4, r3, r4
     brnp minus
     ld r4, performOperations_add
-    jsr r4
+    jsrr r4
     brnzp performOperations_store
     
     
@@ -925,7 +924,7 @@ minus
     add r4, r3, r4
     brnp times
     ld r4, performOperations_subtract
-    jsr r4
+    jsrr r4
     brnzp performOperations_store
     
     
@@ -933,18 +932,18 @@ times
     ldr r4, r6, #1
     add r3, r3, #-1
     add r4, r3, r4
-    brnp divide
+    brnp division
     ld r4, performOperations_multiply
-    jsr r4
+    jsrr r4
     brnzp performOperations_store
 
-divide
+division
     ldr r4, r6, #1
     add r3, r3, #-1
     add r4, r3, r4
     brnp none
     ld r4, performOperations_divide
-    jsr r4
+    jsrr r4
     brnzp performOperations_store
 none
     and r3, r3, #0
