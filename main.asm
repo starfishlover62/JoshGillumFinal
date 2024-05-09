@@ -22,6 +22,11 @@ calculator:
     ld r6, parse
     jsrr r6
     
+    ld r1, perform
+    jsrr r1
+    
+    
+    
     
     ld r7, calculator_saveR7
     ret
@@ -31,6 +36,7 @@ calculator:
     two .fill #3
     inputAddr .fill getInput
     parse .fill parseString
+    perform .fill performOperations
 
 addition:
     add r3, r1, r2
@@ -59,7 +65,7 @@ checkNegative:
     checkNegative_exit ret
     
 
-multiply:
+multiply: ; r3 = r1 * r2
     st r4, multiply_saveR4 ; Saves value of r4
     st r7, multiply_saveR7 ; saves value of r7
     and r4, r4, #0
@@ -358,10 +364,10 @@ asciiToInt_saveR6 .blkw 1
 ;   NULL        x0          0   (END OF Instruction)
 ;   (           x28         1
 ;   )           x29         2
-;   +           x2B         3
-;   -           x2D         4
-;   *           x2A         5
-;   /           x2F         6
+;   +           x2B         10
+;   -           x2D         11
+;   *           x2A         12
+;   /           x2F         13
 ;
 parseString:
 st r0, parseString_inputStart
@@ -426,11 +432,17 @@ parseString_jumpGetNumbers
 
 
 parseString_getParenthesis
-ld r0, parseString_inputStart
-and r1, r1, #0
-add r1, r1, r0
-and r2, r2, #0
-and r3, r3, #0
+    add r1, r1, #0
+    brz parseString_getParenthesisStart
+    and r4, r4, #0
+    str r4, r0, #1
+    brnzp parseString_notNumber
+parseString_getParenthesisStart
+    ld r0, parseString_inputStart
+    and r1, r1, #0
+    add r1, r1, r0
+    and r2, r2, #0
+    and r3, r3, #0
 
 parseString_parenthesisStart
     ldr r7, r0, #0 ; loads current character
@@ -460,10 +472,10 @@ parseString_checkParenthesisClose
     ld r6, parseString_parenthesisClose
     add r6, r6, r7
     brnp parseString_parenthesisIncrementR0
-    add r3, r3, #1
+    add r3, r3, #1 ; lowers current depth by 1
     brnzp parseString_parenthesisIncrementR0
 
-parseString_parenthesisIncrementR0
+parseString_parenthesisIncrementR0 ; Increments r0 by 1 and returns to the start of the loop
     add r0, r0, #1
     brnzp parseString_parenthesisStart
 
@@ -475,25 +487,101 @@ parseString_checkSyntaxError
     and r2, r2, #0
     add r2, r2, #-1
     str r2, r1, #0
-
-parseString_getInstructions
     
 
-parseString_exit 
-    ld r7, parseString_saveReturn
-    ret
 
+parseString_getInstructions
+    and r0, r0, #0
+    add r0, r0, r1 ; Sets r0 to the value of r1
+    ; Check for unary "-" aka a negative number
+    ; when find + or -, check if previous value is an operator or greater than 127.
+    ; if operator, then unary, else if greater than 127, then binary
+    ; check if x28 through x2e to see if operator
+    
+    ; R0 stores start of string
+    ; R1 stores current number. Will hold location of unary minus sign when checking
+    ; R2 stores pointer to previous addresses, for determining if sign is unary.
+    ; R3 is temp
+    ; r4 stores masks and offsets
+    ; r5 stores the items that are stored at the memory locations
+    and r2, r2, #0
+    add r2, r2, r1
+parseString_loadDash ; Checks the element at the memory pointed to by r2
+    ldr, r4, r1, #0
+    brz parseString_checkOperators ; End of string has been reached
+    ld r4, parseString_parenthesisClose
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brz parseString_checkOperators ; Reached a close parenthesis
+    ld r4, parseString_dash
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brnp parseString_addR1 ; Not a minus sign
+parseString_minusR2 add r2, r2, #-1 ; Goes back a location
+    not r2, r2 ; Converts r2 to negative
+    add r2, r2, #1
+    add r3, r0, r2 ; Checks if r2 is before r0
+    not r2, r2 ; Converts r2 back to positive
+    add r2, r2, #1
+    add r3, r3, #0 ; R3 stores whether r0 or r2 is greater
+    brp parseString_unaryInstruction ; R0 is greater, therefore the last element has been checked
+    ld r4, parseString_endOfASCII ; Checks if r2 points to an address or an operator
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brzp parseString_addR1 ; R1 points to an address storing a number
+    ld r4, parseString_space ; Checks if r2 points to a space
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brz parseString_minusR2 ; R2 points to a space
+    
+parseString_unaryInstruction
+    and r2, r2, #0
+    add r2, r2, r1
+    
+parseString_unarySpace add r2, r2, #1
+    ld r4, parseString_space
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brz parseString_unarySpace
+    ld r4, parseString_endOfASCII ; Checks if next item after r1 points to an address or an operator
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brn parseString_addR1 ; Next item is not an address
+    
+    ld r6, parseString_InstructionsLast ; Push operation to array
+    and r3, r3, #0
+    str r3, r6, #0 ; Pushes 0 to instruction
+    add r6, r6, #1
+    
+    add r3, r3, #11
+    str r3, r6, #0 ; Pushes the minus operation code
+    add r6, r6, #1
+    
+    ldr r3, r2, #0
+    str r3, r6, #0 ; Pushes the address of the number
+    add r6, r6, #2
+    
+    st r6, parseString_InstructionsLast
+    add r6, r6, #-1
+    str r6, r1, #0
+    ld r3, parseString_normalSpace
+    str r3, r2, #0
+    and r1, r1, #0
+    add r1, r1, r2
+    brnzp parseString_addR1
 
+brnzp parseString_endStorage    ; Had to centrally locate storage, so whole function can access
 parseString_normalSpace .fill x20
 parseString_space .fill x-20
 parseString_parenthesisOpen .fill x-28
 parseString_parenthesisClose .fill x-29
-parseString_cross .fill x-2B
-parseString_dash .fill x-2D
-parseString_star .fill x-2A
-parseString_slash .fill x-2F
+parseString_cross .fill x-2B ; plus
+parseString_dash .fill x-2D ; minus
+parseString_star .fill x-2A ; times
+parseString_slash .fill x-2F ; divide
 parseString_zero .fill x-30
 parseString_nine .fill x-39
+parseString_endOfASCII .fill #-128
 
 parseString_inputStart .blkw 1
 parseString_saveReturn .blkw 1
@@ -504,5 +592,386 @@ parseString_valuesLast .fill x5000 ; Address of last value in array
 parseString_Instructions .fill x6000
 parseString_InstructionsLast .fill x6000 ; Address of last value in array
 parseString_syntaxError .fill x3011
+
+parseString_endStorage
+
+    
+parseString_addR1
+    add r1, r1, #1 ; Increments r1, to next item, and brings r2 along with it
+    and r2, r2, #0
+    add r2, r2, r1
+    brnzp parseString_loadDash
+    
+parseString_subtractR2
+    add r2, r2, #-1
+    brnzp parseString_loadDash 
+    
+    
+    
+parseString_checkOperators
+    and r1, r1, #0
+    and r2, r2, #0
+    add r1, r0, r1
+    add r2, r0, r2
+    
+parseString_loadStar
+    ldr, r4, r1, #0
+    brz parseString_addSubtract ; End of string has been reached
+    
+    ld r4, parseString_parenthesisClose
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brz parseString_addSubtract ; Reached a close parenthesis
+    
+    ld r4, parseString_star
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brnp parseString_multiplyAddR1 ; Not a multiply sign
+    brz parseString_multiplyMinusR2
+    
+    ld r4, parseString_slash
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brnp parseString_multiplyAddR1 ; Not a divide sign
+    
+    
+parseString_multiplyMinusR2 add r2, r2, #-1 ; Goes back a location
+    not r2, r2 ; Converts r2 to negative
+    add r2, r2, #1
+    add r3, r0, r2 ; Checks if r2 is before r0
+    not r2, r2 ; Converts r2 back to positive
+    add r2, r2, #1
+    add r3, r3, #0 ; R3 stores whether r0 or r2 is greater
+    brp parseString_multiplyAddR1 ; R0 is greater, therefore the last element has been checked
+    
+    ld r4, parseString_space ; Checks if r2 points to a space
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brz parseString_multiplyMinusR2 ; R2 points to a space
+    ld r4, parseString_endOfASCII ; Checks if r2 points to an address or an operator
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brn parseString_multiplyAddR1 ; R2 points to something other than an address
+    
+    
+    and r5, r5, #0 ; R5 will check if there is a number succeeding
+    add r5, r5, r1
+parseString_multiplyAddR5 add r5, r5, #1 ; Goes forward a location
+
+    ldr, r3, r5, #0
+    brz parseString_multiplyAddR1 ; End of string has been reached
+    
+    ld r4, parseString_parenthesisClose
+    ldr, r3, r5, #0
+    add r3, r3, r4
+    brz parseString_multiplyAddR1 ; Reached a close parenthesis
+    
+    ld r4, parseString_space ; Checks if r5 points to a space
+    ldr r3, r5, #0
+    add r3, r3, r4
+    brz parseString_multiplyAddR5 ; R5 points to a space
+    ld r4, parseString_endOfASCII ; Checks if r5 points to an address or an operator
+    ldr r3, r5, #0
+    add r3, r3, r4
+    brn parseString_multiplyAddR1 ; R5 points to something other than an address
+    
+    
+parseString_multiplyInstruction
+    
+    ld r6, parseString_InstructionsLast ; Push operation to array
+    ldr r3, r2, #0
+    str r3, r6, #0 ; Pushes the address of the first number
+    add r6, r6, #1
+    
+    ld r4, parseString_slash ; Checks if the operation is multiply or divide
+    ldr r3, r1, #0
+    add r3, r3, r4
+    brz parseString_divideSave
+    and r3, r3, #0
+    add r3, r3, #12
+    str r3, r6, #0 ; Pushes the multiply operation code
+    add r6, r6, #1
+    brnzp parseString_multiplySecond
+    
+parseString_divideSave
+    and r3, r3, #0
+    add r3, r3, #13
+    str r3, r6, #0 ; Pushes the divide operation code
+    add r6, r6, #1
+    
+parseString_multiplySecond
+    ldr r3, r5, #0
+    str r3, r6, #0 ; Pushes the address of the second number
+    add r6, r6, #2
+    
+    st r6, parseString_InstructionsLast
+    add r6, r6, #-1
+    str r6, r1, #0
+    ld r3, parseString_normalSpace
+    str r3, r2, #0
+    str r3, r5, #0
+    and r1, r1, #0
+    add r1, r1, r5
+    brnzp parseString_multiplyAddR1
+    
+    
+    
+
+parseString_multiplyAddR1
+    add r1, r1, #1 ; Increments r1, to next item, and brings r2 along with it
+    and r2, r2, #0
+    add r2, r2, r1
+    brnzp parseString_loadStar  
+    
+
+parseString_AddSubtract
+    and r1, r1, #0
+    and r2, r2, #0
+    add r1, r0, r1
+    add r2, r0, r2
+    
+parseString_loadCross
+    ldr, r4, r1, #0
+    brz parseString_repeat ; End of string has been reached
+    
+    ld r4, parseString_parenthesisClose
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brz parseString_repeat ; Reached a close parenthesis
+    
+    ld r4, parseString_cross
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brz parseString_addMinusR2 ; an addition sign
+    
+    
+    ld r4, parseString_dash
+    ldr, r3, r2, #0
+    add r3, r3, r4
+    brnp parseString_addAddR1 ; Not a divide sign
+    
+    
+parseString_addMinusR2 add r2, r2, #-1 ; Goes back a location
+    not r2, r2 ; Converts r2 to negative
+    add r2, r2, #1
+    add r3, r0, r2 ; Checks if r2 is before r0
+    not r2, r2 ; Converts r2 back to positive
+    add r2, r2, #1
+    add r3, r3, #0 ; R3 stores whether r0 or r2 is greater
+    brp parseString_addAddR1 ; R0 is greater, therefore the last element has been checked
+    
+    ld r4, parseString_space ; Checks if r2 points to a space
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brz parseString_addMinusR2 ; R2 points to a space
+    ld r4, parseString_endOfASCII ; Checks if r2 points to an address or an operator
+    ldr r3, r2, #0
+    add r3, r3, r4
+    brn parseString_addAddR1 ; R2 points to something other than an address
+    
+    
+    and r5, r5, #0 ; R5 will check if there is a number succeeding
+    add r5, r5, r1
+parseString_addAddR5 add r5, r5, #1 ; Goes forward a location
+
+    ldr, r3, r5, #0
+    brz parseString_addAddR1 ; End of string has been reached
+    
+    ld r4, parseString_parenthesisClose
+    ldr, r3, r5, #0
+    add r3, r3, r4
+    brz parseString_addAddR1 ; Reached a close parenthesis
+    
+    ld r4, parseString_space ; Checks if r5 points to a space
+    ldr r3, r5, #0
+    add r3, r3, r4
+    brz parseString_addAddR5 ; R5 points to a space
+    ld r4, parseString_endOfASCII ; Checks if r5 points to an address or an operator
+    ldr r3, r5, #0
+    add r3, r3, r4
+    brn parseString_addAddR1 ; R5 points to something other than an address
+    
+    
+parseString_addInstruction
+    
+    ld r6, parseString_InstructionsLast ; Push operation to array
+    ldr r3, r2, #0
+    str r3, r6, #0 ; Pushes the address of the first number
+    add r6, r6, #1
+    
+    ld r4, parseString_dash ; Checks if the operation is multiply or divide
+    ldr r3, r1, #0
+    add r3, r3, r4
+    brz parseString_minusSave
+    and r3, r3, #0
+    add r3, r3, #10
+    str r3, r6, #0 ; Pushes the multiply operation code
+    add r6, r6, #1
+    brnzp parseString_addSecond
+    
+parseString_minusSave
+    and r3, r3, #0
+    add r3, r3, #11
+    str r3, r6, #0 ; Pushes the divide operation code
+    add r6, r6, #1
+    
+parseString_addSecond
+    ldr r3, r5, #0
+    str r3, r6, #0 ; Pushes the address of the second number
+    add r6, r6, #2
+    
+    st r6, parseString_InstructionsLast
+    add r6, r6, #-1
+    str r6, r1, #0
+    ld r3, parseString_normalSpace
+    str r3, r2, #0
+    str r3, r5, #0
+    and r1, r1, #0
+    add r1, r1, r5
+    brnzp parseString_addAddR1
+
+parseString_addAddR1
+    add r1, r1, #1 ; Increments r1 to next item, and brings r2 along with it
+    and r2, r2, #0
+    add r2, r2, r1
+    brnzp parseString_loadCross
+
+
+parseString_repeat
+    ld r4, parseString_parenthesisOpen ; Replaces first character with space, if it is open parenthesis
+    ldr r3, r0, #0
+    add r3, r3, r4
+    brnp parseString_repeatClose
+    ld r3, parseString_normalSpace
+    str r3, r0, #0
+    
+parseString_repeatClose ; Replaces last character with space, if it is close parenthesis
+    ld r4, parseString_parenthesisClose
+    ldr r3, r1, #0
+    add r3, r3, r4
+    brnp parseString_repeatCheck
+    ld r3, parseString_normalSpace
+    str r3, r1, #0
+
+parseString_repeatCheck ; R5 is storage value
+    and r5, r5, #0
+    ld r0, parseString_inputStart
+parseString_repeatLoop
+    ldr r3, r0, #0
+    brz parseString_checkValidity ; End of string reached
+    ld r4, parseString_space
+    add r4, r3, r4
+    brz parseString_checkIncrement
+    ld r4, parseString_endOfASCII
+    add r4, r3, r4
+    brn parseString_fail ; Not an address
+parseString_checkR5
+    add r5, r5, #0
+    brnp parseString_fail ; Not the first number
+    ldr r5, r0, #0
+parseString_checkIncrement
+    add r0, r0, #1
+    brnzp parseString_repeatLoop
+
+parseString_fail
+    ld r0, parseString_inputStart
+    ld r1, parseString_returnToParenthesis
+    jsrr r1
+parseString_returnToParenthesis .fill parseString_getParenthesisStart
+
+
+parseString_checkValidity
+    add r5, r5, #0
+    brz parseString_fail
+    
+    
+    
+
+parseString_exit 
+    ld r6, parseString_instructions
+    ld r7, parseString_saveReturn
+    ret
+
+
+performOperations:
+    st r7, performOperations_saveReturn
+    not r5, r5
+    add r5, r5, #1
+loop
+    add r4, r5, r6
+    brp performOperations_endOfArray ; End of operations
+    ldr r1, r6, #0 ; Loads r1 with first operand
+    brz #1
+    ldr r1, r1, #0 ; R1 stores an address, so go to that address and get value
+    
+    ldr r2, r6, #2 ; Loads r2 with second operand
+    brz #1
+    ldr r2, r2, #0
+    
+    and r3, r3, #0 ; Checks which operation is stored
+    ldr r4, r6, #1
+    add r3, r3, #-10
+    add r4, r3, r4
+    brnp minus
+    ld r4, performOperations_add
+    jsr r4
+    brnzp performOperations_store
+    
+    
+    
+minus
+    ldr r4, r6, #1
+    add r3, r3, #-1
+    add r4, r3, r4
+    brnp times
+    ld r4, performOperations_subtract
+    jsr r4
+    brnzp performOperations_store
+    
+    
+times
+    ldr r4, r6, #1
+    add r3, r3, #-1
+    add r4, r3, r4
+    brnp divide
+    ld r4, performOperations_multiply
+    jsr r4
+    brnzp performOperations_store
+
+divide
+    ldr r4, r6, #1
+    add r3, r3, #-1
+    add r4, r3, r4
+    brnp none
+    ld r4, performOperations_divide
+    jsr r4
+    brnzp performOperations_store
+none
+    and r3, r3, #0
+    brnzp performOperations_store
+    
+performOperations_store
+    add r6, r6, #4
+    str r3, r6, #-1
+    brnzp loop
+    
+    
+    
+    
+    
+performOperations_endOfArray
+    add r6, r6, #-1
+    ldr r5, r6, #0
+    ld r7, performOperations_saveReturn
+    ret
+
+performOperations_saveReturn .blkw 1
+performOperations_add .fill addition
+performOperations_subtract .fill subtract
+performOperations_multiply .fill multiply
+performOperations_divide .fill divide
+
+
+
     
 .end
