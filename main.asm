@@ -25,6 +25,8 @@ calculator:
     ld r1, perform
     jsrr r1
     
+    ld r1, print
+    jsrr r1
     
     
     
@@ -37,6 +39,7 @@ calculator:
     inputAddr .fill getInput
     parse .fill parseString
     perform .fill performOperations
+    print .fill display
 
 addition:
     add r3, r1, r2
@@ -66,6 +69,8 @@ checkNegative:
     
 
 multiply: ; r3 = r1 * r2
+    st r1, multiply_saveR1
+    st r2, multiply_saveR2
     st r4, multiply_saveR4 ; Saves value of r4
     st r7, multiply_saveR7 ; saves value of r7
     and r4, r4, #0
@@ -105,18 +110,25 @@ multiply: ; r3 = r1 * r2
     not r3, r3 ; r3 is negated
     add r3, r3, #1
     
-    multiply_exit ld r4, multiply_saveR4 ; Reverts the value of r4
+    multiply_exit 
+    ld r1, multiply_saveR1
+    ld r2, multiply_saveR2
+    ld r4, multiply_saveR4 ; Reverts the value of r4
     ld r7, multiply_saveR7
     ret
     
     multiply_zero and r3, r3, #0 ; r3 is set to 0
     brnzp multiply_exit
 
+    multiply_saveR1 .blkw 1
+    multiply_saveR2 .blkw 1
     multiply_saveR4 .blkw 1 ; stores the value of r4 from before the function call
     multiply_saveR7 .blkw 1
 
 ; Performs integer division of r3 = r1 / r2
 divide:
+    st r1, divide_saveR1
+    st r2, divide_saveR2
     st r4, divide_saveR4 ; Saves value of r4
     st r7, divide_saveR7 ; saves value of r7
     and r4, r4, #0
@@ -143,7 +155,10 @@ divide:
     not r3, r3 ; r3 is negated
     add r3, r3, #1
 
-    divide_exit ld r4, divide_saveR4 ; Reverts the value of r4
+    divide_exit 
+    ld r1, divide_saveR1
+    ld r2, divide_saveR2
+    ld r4, divide_saveR4 ; Reverts the value of r4
     ld r7, divide_saveR7
     ret
 
@@ -156,6 +171,8 @@ divide:
     brnzp divide_exit
 
 
+    divide_saveR1 .blkw 1
+    divide_saveR2 .blkw 1
     divide_saveR4 .blkw 1 ; stores the value of r4 from before the function call
     divide_saveR7 .blkw 1
     divide_mathError .fill xfcff
@@ -950,8 +967,8 @@ none
     brnzp performOperations_store
     
 performOperations_store
-    add r6, r6, #4
-    str r3, r6, #-1
+    add r6, r6, #4 ; jumps one operation in the array
+    str r3, r6, #-1 ; stores output in output section of previous operation
     brnzp loop
     
     
@@ -959,8 +976,8 @@ performOperations_store
     
     
 performOperations_endOfArray
-    add r6, r6, #-1
-    ldr r5, r6, #0
+    add r6, r6, #-1 ; r6 points to output of last operation
+    ldr r5, r6, #0 ; r5 stores the answer
     ld r7, performOperations_saveReturn
     ret
 
@@ -970,6 +987,92 @@ performOperations_subtract .fill subtract
 performOperations_multiply .fill multiply
 performOperations_divide .fill divide
 
+
+
+display: ; Takes number in r5
+
+    st r7, display_saveReturn
+    lea r6, display_stack ; Stack for storing numbers, since this function works from the right to the left
+    add r6, r6, #1
+    
+    and r0, r0, #0
+    add r0, r0, #10 ; Displays newline
+    trap x21
+    ld r0, display_equal ; prints equal sign
+    trap x21
+    ld r0, display_space ; prints a space
+    trap x21
+    
+    add r5, r5, #0 ; Prints a negative sign if r5 is negative
+    brzp display_loop
+    not r5, r5 ; Then converts it to positive
+    add r5, r5, #1
+    ld r0, display_dash
+    trap x21
+    
+    
+display_loop 
+    and r1, r1, #0
+    and r2, r2, #0
+    add r2, r2, #10 ; r2 is used for changing power (multiplying or dividing by 10)
+    and r4, r4, #0
+    
+    add r1, r1, r5 ; r1 stores original
+    
+    ld r0, display_divide
+    jsrr r0
+    
+    
+    
+    and r1, r1, #0
+    add r1, r1, r3
+    ld r0, display_multiply
+    jsrr r0 ; r3 stores (original / 10) * 10
+    
+    and r2, r2, #0
+    add r2, r2, r3 ; r2 = (original / 10) * 10
+    and r4, r4, #0 ; r4 stores r1 aka original / 10
+    add r4, r1, r4
+    and r1, r1, #0 ; r1 = original
+    add r1, r1, r5
+    ld r0, display_minus
+    jsrr r0 ; r3 stores modulus of original / 10
+    
+    and r5, r5, #0
+    ld r1, display_offset
+    add r3, r3, r1
+    str r3, r6, #0
+    add r6, r6, #1
+    add r5, r4, r5 ; r5 = original / 10
+    brnp display_loop
+    
+    
+    
+    add r6, r6, #-1
+display_print 
+    ldr r0, r6, #0
+    brz display_return; end of stack
+    trap x21
+    add r6, r6, #-1
+    brnzp display_print
+
+
+display_return
+    and r0, r0, #0
+    add r0, r0, #10 ; Displays newline
+    trap x21
+    ld r7, display_saveReturn
+    ret
+
+display_saveReturn .blkw 1
+display_divide .fill divide
+display_multiply .fill multiply
+display_minus .fill subtract
+display_dash .fill #45
+display_offset .fill x30
+display_equal .fill x3D
+display_space .fill x20
+display_stack .blkw x100
 
 
     
