@@ -23,22 +23,25 @@ perform .fill performOperations
 print .fill display
     
 
-
+; r1 + r2 = r3
 addition:
     add r3, r1, r2
     ret
 
+; r1 - r2 = r3
 subtract:
     not r3, r2
     add r3, r3, #1
     add r3, r1, r3
     ret
 
-; inverts r4 for each negative number in r1 and r2. Inverts the r1 or r2 if it is negative
+; inverts r4 for each negative number in r1 and r2. Inverts r1 and/or r2 if they negative
+; r4 is all 0's if the output should be positive, and all 1's if it should be negative
 checkNegative:
-    add r1, r1, #0
-    brzp checkNegative_r2
-    not r1, r1
+    and r4, r4, #0
+    add r1, r1, #0 
+    brzp checkNegative_r2 ; r1 is not negative
+    not r1, r1 ; inverts r1
     add r1, r1, #1
     not r4, r4
     
@@ -56,7 +59,7 @@ multiply: ; r3 = r1 * r2
     st r2, multiply_saveR2
     st r4, multiply_saveR4 ; Saves value of r4
     st r7, multiply_saveR7 ; saves value of r7
-    and r4, r4, #0
+    
     
     add r1, r1, #0 ; Used to check state of r1
     brz multiply_zero ; output will be 0
