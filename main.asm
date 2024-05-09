@@ -1,61 +1,81 @@
-; Josh Gillum
-; Calculator
+;*****************************************************************************
+; Author: Josh Gillum
+; Date: 5/9/2024
+; Revision: 1.0
+;
+; Description:
+; A calculator. Accepts addition (+), subtraction (-), multiplication (*), and
+; division (/). Also follows the PEMDAS order of operations. Allows for parentheses
+; as well. Attempting to divide by 0 will result in a math error.
+;
+; Register Usage:
+; R0 Not used
+; R1 Stores addresses of subroutines so they can be jumped to
+; R2 Not used
+; R3 Not used
+; R4 Not used
+; R5 Not used
+; R6 Not used
+; R7 Not used
+;****************************************************************************/
 
 .orig x3000
-jsr calculator ; will jump to subroutine for 16 bit calculator
+
+and r1, r1, #0
+sti r1, mathError ; Resets the math error flag
+    
+ld r1, input ; Gets input from the user
+jsrr r1
+
+ld r1, parse ; Parses the input
+jsrr r1
+
+ld r1, perform ; Performs the operations
+jsrr r1
+
+ld r1, print ; Prints the results
+jsrr r1
+
 end halt
 
-.end
+input .fill getInput
+parse .fill parseString
+perform .fill performOperations
+print .fill display
+mathError .fill xfcff
+    
 
-.orig x3010 ; Settings
-prettyPrint? .fill x0000 ; adds commas to numbers greater than 999
-.end
-
-
-.orig x3020
-calculator:
-    st r7, calculator_saveR7
-    
-    ld r6, inputAddr
-    jsrr r6
-
-    ld r6, parse
-    jsrr r6
-    
-    ld r1, perform
-    jsrr r1
-    
-    ld r1, print
-    jsrr r1
-    
-    
-    
-    ld r7, calculator_saveR7
-    ret
-    
-    calculator_saveR7 .blkw 1
-    one .fill #10
-    two .fill #3
-    inputAddr .fill getInput
-    parse .fill parseString
-    perform .fill performOperations
-    print .fill display
-
+;**********************addition******************************
+; This routine performs addition. R1 + R2 = R3
+;
+;R1 - First operand
+;R2 - Second operand
+;R3 - Answer
+;************************************************************
 addition:
     add r3, r1, r2
     ret
 
+;**********************subtraction******************************
+; This routine performs subtraction. R1 - R2 = R3
+;
+;R1 - First operand
+;R2 - Second operand
+;R3 - Answer
+;************************************************************
 subtract:
     not r3, r2
     add r3, r3, #1
     add r3, r1, r3
     ret
 
-; inverts r4 for each negative number in r1 and r2. Inverts the r1 or r2 if it is negative
+; inverts r4 for each negative number in r1 and r2. Inverts r1 and/or r2 if they negative
+; r4 is all 0's if the output should be positive, and all 1's if it should be negative
 checkNegative:
-    add r1, r1, #0
-    brzp checkNegative_r2
-    not r1, r1
+    and r4, r4, #0
+    add r1, r1, #0 
+    brzp checkNegative_r2 ; r1 is not negative
+    not r1, r1 ; inverts r1
     add r1, r1, #1
     not r4, r4
     
@@ -68,12 +88,21 @@ checkNegative:
     checkNegative_exit ret
     
 
-multiply: ; r3 = r1 * r2
+;**********************multiply******************************
+; This routine performs multiplication. R1 * R2 = R3
+;
+;R1 - First operand
+;R2 - Second operand
+;R3 - Answer
+;************************************************************
+multiply:
+
+    ; Saves registers that are changed.
     st r1, multiply_saveR1
     st r2, multiply_saveR2
-    st r4, multiply_saveR4 ; Saves value of r4
-    st r7, multiply_saveR7 ; saves value of r7
-    and r4, r4, #0
+    st r4, multiply_saveR4
+    st r7, multiply_saveR7
+    
     
     add r1, r1, #0 ; Used to check state of r1
     brz multiply_zero ; output will be 0
@@ -111,27 +140,38 @@ multiply: ; r3 = r1 * r2
     add r3, r3, #1
     
     multiply_exit 
+    ; Restores registers
     ld r1, multiply_saveR1
     ld r2, multiply_saveR2
-    ld r4, multiply_saveR4 ; Reverts the value of r4
+    ld r4, multiply_saveR4
     ld r7, multiply_saveR7
     ret
     
     multiply_zero and r3, r3, #0 ; r3 is set to 0
     brnzp multiply_exit
 
+    ; Stores register values from before function changed them
     multiply_saveR1 .blkw 1
     multiply_saveR2 .blkw 1
-    multiply_saveR4 .blkw 1 ; stores the value of r4 from before the function call
+    multiply_saveR4 .blkw 1
     multiply_saveR7 .blkw 1
 
-; Performs integer division of r3 = r1 / r2
+;**********************divide******************************
+; This routine performs division. R1 / R2 = R3
+; Note that this is integer division. As such, decimals are truncated
+; to the whole number. Ex: 10 / 3 will result in an output of 3. 
+; The 0.3333333 is simply ignored.
+;
+;R1 - First operand
+;R2 - Second operand
+;R3 - Answer
+;************************************************************
 divide:
+    ; Register storage
     st r1, divide_saveR1
     st r2, divide_saveR2
-    st r4, divide_saveR4 ; Saves value of r4
-    st r7, divide_saveR7 ; saves value of r7
-    and r4, r4, #0
+    st r4, divide_saveR4
+    st r7, divide_saveR7
 
     add r1, r1, #0 ; Used to check state of r1
     brz divide_zero ; output will be 0
@@ -156,9 +196,10 @@ divide:
     add r3, r3, #1
 
     divide_exit 
+    ; Restores registers
     ld r1, divide_saveR1
     ld r2, divide_saveR2
-    ld r4, divide_saveR4 ; Reverts the value of r4
+    ld r4, divide_saveR4
     ld r7, divide_saveR7
     ret
 
@@ -170,10 +211,10 @@ divide:
     sti r3, divide_mathError ; Sets flag mathError flag to -1 to indicate an error occured
     brnzp divide_exit
 
-
+    ; Stores register values from before function changed them
     divide_saveR1 .blkw 1
     divide_saveR2 .blkw 1
-    divide_saveR4 .blkw 1 ; stores the value of r4 from before the function call
+    divide_saveR4 .blkw 1
     divide_saveR7 .blkw 1
     divide_mathError .fill xfcff
 
@@ -232,15 +273,6 @@ getInput_loop trap x20 ; Gets a character from the user
 getInput_backspaceReset ld r2, getInput_max ; Resets r2
     brnzp getInput_display
     
-    ; Checks if the character is a digit. Does not store it if it isnt
-; getInput_checkDigit ld r4, getInput_0
-;     add r4, r4, r0 ; Checks if the ascii value is less than that of "0"
-;     brn getInput_loop
-;     ld r4, getInput_9 
-;     add r4, r4, r0 ; Checks if the ascii value is greater than that of "9"
-;     brp getInput_loop
-    
-    
 getInput_storeChar str r0, r1, #0 ; Stores character to array
     add r1, r1, #1
     
@@ -287,78 +319,90 @@ getInput_saveR2 .fill x0000
 getInput_saveR3 .fill x0000
 getInput_saveR4 .fill x0000
 
-;r1 is address of first element
-;r2 is address of last element
-;r3 Sum returned
-;r4 used
-;r5 used
-;r6 used
+
+;**********************asciiToInt******************************
+; This routine converts an ascii representation of a number
+; into an integer. 
+;
+;R1 - first character of number
+;R2 - last character of number
+;R3 - Holds the integer value
+;R4 - Temporarily used for multiplying / dividing
+;R5 - Used to check if the stack is empty
+;R6 - Stores pointer to stack that is used for conversion
+;R7 - Return address
+;************************************************************
 asciiToInt:
-; Saves Registers
-st r0, asciiToInt_saveR0
-st r1, asciiToInt_saveR1
-st r2, asciiToInt_saveR2
-st r4, asciiToInt_saveR4
-st r5, asciiToInt_saveR5
-st r6, asciiToInt_saveR6
+    ; Saves Registers
+    st r0, asciiToInt_saveR0
+    st r1, asciiToInt_saveR1
+    st r2, asciiToInt_saveR2
+    st r4, asciiToInt_saveR4
+    st r5, asciiToInt_saveR5
+    st r6, asciiToInt_saveR6
 
-not r2, r2
-add r2, r2, #1 ; Inverses r2, for checking if the last element is reached
-ld r6, asciiToInt_stack
+    not r2, r2
+    add r2, r2, #1 ; Inverses r2, for checking if the last element is reached
+    ld r6, asciiToInt_stack
 
-asciiToInt_loadStack add r3, r1, r2
-brp asciiToInt_unwindStack
-ldr r3, r1, #0 ; Gets r3 from address in r1
-str r3, r6, #0 ; Pushes to stack
-add r6, r6, #1 ; Moves stack pointer
-add r1, r1, #1
-brnzp asciiToInt_loadStack
+asciiToInt_loadStack 
+    add r3, r1, r2
+    brp asciiToInt_unwindStack
+    ldr r3, r1, #0 ; Gets r3 from address in r1
+    str r3, r6, #0 ; Pushes to stack
+    add r6, r6, #1 ; Moves stack pointer
+    add r1, r1, #1
+    brnzp asciiToInt_loadStack
 
-asciiToInt_unwindStack and r1, r1, #0 ; sum
-and r3, r3, #0 ; r3 is power, r2 is current value
-add r3, r3, #1 ; r4 is used for multiplying
-ld r5, asciiToInt_stack ; r5 is inverse of start of stack
-not r5, r5 ; Used for checking if stack is empty
-add r5, r5, #1
+asciiToInt_unwindStack 
+    and r1, r1, #0 ; sum
+    and r3, r3, #0 ; r3 is power, r2 is current value
+    add r3, r3, #1 ; r4 is used for multiplying
+    ld r5, asciiToInt_stack ; r5 is inverse of start of stack
+    not r5, r5 ; Used for checking if stack is empty
+    add r5, r5, #1
 
-asciiToInt_mainLoop add r4, r5, r6
-brnz asciiToInt_exit ; If negative or zero, stack is empty
-add r6, r6, #-1
-ldr r2, r6, #0 ; Gets current ascii value
+asciiToInt_mainLoop 
+    add r4, r5, r6
+    brnz asciiToInt_exit ; If negative or zero, stack is empty
+    add r6, r6, #-1
+    ldr r2, r6, #0 ; Gets current ascii value
 
-ld r4, asciiToInt_offset
-add r2, r2, r4 ; Applies offset to r2
+    ld r4, asciiToInt_offset
+    add r2, r2, r4 ; Applies offset to r2
 
-asciiToInt_addLoop brnz asciiToInt_power ; Adds the power to the sum r2 times
-add r1, r1, r3 ; ex 400 = 4 (r2) * 100 (r3) or 100 + 100 + 100 + 100
-add r2, r2, #-1
-brnzp asciiToInt_addLoop
+asciiToInt_addLoop 
+    brnz asciiToInt_power ; Adds the power to the sum r2 times
+    add r1, r1, r3 ; ex 400 = 4 (r2) * 100 (r3) or 100 + 100 + 100 + 100
+    add r2, r2, #-1
+    brnzp asciiToInt_addLoop
 
 ; Multiplies r3 (power) by 10, for moving to the next digit
-asciiToInt_power and r2, r2, #0
-add r2, r2, #10 ; Number of times to increment r3
-and r4, r4, #0 ; r4 is the running total for incrementing r3
+asciiToInt_power 
+    and r2, r2, #0
+    add r2, r2, #10 ; Number of times to increment r3
+    and r4, r4, #0 ; r4 is the running total for incrementing r3
 asciiToInt_powerLoop 
-add r4, r4, r3 ; r4 will be equal to r3 added 10 times
-add r2, r2, #-1
-brp asciiToInt_powerLoop 
+    add r4, r4, r3 ; r4 will be equal to r3 added 10 times
+    add r2, r2, #-1
+    brp asciiToInt_powerLoop 
 
-and r3, r3, #0 ; Applies new power to r3
-add r3, r3, r4
-
-brnzp asciiToInt_mainLoop
+    and r3, r3, #0 ; Applies new power to r3
+    add r3, r3, r4
+    
+    brnzp asciiToInt_mainLoop
 
 
 asciiToInt_exit
-and r3, r3, #0
-add r3, r3, r1
-ld r0, asciiToInt_saveR0
-ld r1, asciiToInt_saveR1
-ld r2, asciiToInt_saveR2
-ld r4, asciiToInt_saveR4
-ld r5, asciiToInt_saveR5
-ld r6, asciiToInt_saveR6
-ret
+    and r3, r3, #0
+    add r3, r3, r1
+    ld r0, asciiToInt_saveR0
+    ld r1, asciiToInt_saveR1
+    ld r2, asciiToInt_saveR2
+    ld r4, asciiToInt_saveR4
+    ld r5, asciiToInt_saveR5
+    ld r6, asciiToInt_saveR6
+    ret
 
 asciiToInt_stack .fill x4200 ; Stack starting address
 asciiToInt_offset .fill x-30 ; Offset from ASCII to int
@@ -372,20 +416,30 @@ asciiToInt_saveR5 .blkw 1
 asciiToInt_saveR6 .blkw 1
 
 
-;r0 points to start of string
-;r1 points to start of number
-;r2 points to end of number
-;r3 stores current value
+
+
+;**********************parseString******************************
+; This routine parses through a string, retrieving all of the
+; operations to be performed
 ;
 ;   character / value   /   operation code:
 ;   NULL        x0          0   (END OF Instruction)
-;   (           x28         1
-;   )           x29         2
+;   (           x28         
+;   )           x29         
 ;   +           x2B         10
 ;   -           x2D         11
 ;   *           x2A         12
 ;   /           x2F         13
 ;
+;R0 - First character of input
+;R1 - Points to the desired character
+;R2 - Used to check previous characters
+;R3 - Temporarily used for misc. purposes
+;R4 - Temporarily used for misc. purposes
+;R5 - Used to check succeeding numbers
+;R6 - Stores pointer to stacks and storage devices
+;R7 - Return value
+;************************************************************
 parseString:
 st r0, parseString_inputStart
 st r1, parseString_saveR1
@@ -587,7 +641,8 @@ parseString_unarySpace add r2, r2, #1
     add r1, r1, r2
     brnzp parseString_addR1
 
-brnzp parseString_endStorage    ; Had to centrally locate storage, so whole function can access
+; Had to centrally locate storage, so whole function can access it
+brnzp parseString_endStorage ; Simply skips over storage
 parseString_normalSpace .fill x20
 parseString_space .fill x-20
 parseString_parenthesisOpen .fill x-28
@@ -619,12 +674,13 @@ parseString_addR1
     add r2, r2, r1
     brnzp parseString_loadDash
     
-parseString_subtractR2
+parseString_subtractR2 ; Moves r2 to previous item
     add r2, r2, #-1
     brnzp parseString_loadDash 
     
     
-    
+
+; Gets instructions for multiply and divide in this section
 parseString_checkOperators
     and r1, r1, #0
     and r2, r2, #0
@@ -651,7 +707,8 @@ parseString_loadStar
     brnp parseString_multiplyAddR1 ; Not a divide sign
     
     
-parseString_multiplyMinusR2 add r2, r2, #-1 ; Goes back a location
+parseString_multiplyMinusR2 
+    add r2, r2, #-1 ; Goes back a location
     not r2, r2 ; Converts r2 to negative
     add r2, r2, #1
     add r3, r0, r2 ; Checks if r2 is before r0
@@ -739,14 +796,14 @@ parseString_multiplyAddR1
     add r2, r2, r1
     brnzp parseString_loadStar  
     
-
+; Gets instructions for addition and subtraction in this section
 parseString_AddSubtract
     and r1, r1, #0
     and r2, r2, #0
     add r1, r0, r1
     add r2, r0, r2
     
-parseString_loadCross
+parseString_loadCross ; Checks what character current one is
     ldr, r4, r1, #0
     brz parseString_repeat ; End of string has been reached
     
@@ -808,27 +865,28 @@ parseString_addAddR5 add r5, r5, #1 ; Goes forward a location
     brn parseString_addAddR1 ; R5 points to something other than an address
     
     
+; Pushes the operation to the array
 parseString_addInstruction
     
-    ld r6, parseString_InstructionsLast ; Push operation to array
+    ld r6, parseString_InstructionsLast
     ldr r3, r2, #0
     str r3, r6, #0 ; Pushes the address of the first number
     add r6, r6, #1
     
-    ld r4, parseString_dash ; Checks if the operation is multiply or divide
+    ld r4, parseString_dash ; Checks if the operation is addition or subtraction
     ldr r3, r1, #0
     add r3, r3, r4
     brz parseString_minusSave
     and r3, r3, #0
     add r3, r3, #10
-    str r3, r6, #0 ; Pushes the multiply operation code
+    str r3, r6, #0 ; Pushes the add operation code
     add r6, r6, #1
     brnzp parseString_addSecond
     
 parseString_minusSave
     and r3, r3, #0
     add r3, r3, #11
-    str r3, r6, #0 ; Pushes the divide operation code
+    str r3, r6, #0 ; Pushes the subtract operation code
     add r6, r6, #1
     
 parseString_addSecond
@@ -852,7 +910,8 @@ parseString_addAddR1
     add r2, r2, r1
     brnzp parseString_loadCross
 
-
+; Determines whether the process needs to be repeated. I.e. there are more sections with parenthesis,
+; or this was a section inside of parenthesis
 parseString_repeat
     ld r4, parseString_parenthesisOpen ; Replaces first character with space, if it is open parenthesis
     ldr r3, r0, #0
@@ -909,6 +968,17 @@ parseString_exit
     ret
 
 
+;*****************performOperation***************************
+; Takes the operations array, and actually performs the operations
+;
+;R1 - Stores value of first operand
+;R2 - Stores value of second operand
+;R3 - Stores output of operation
+;R4 - Temporarily used for storage
+;R5 - Used to check if end of array has been reached
+;R6 - Points to the current place in the operations array
+;R7 - Return value
+;************************************************************
 performOperations:
     st r7, performOperations_saveReturn
     not r5, r5
@@ -935,7 +1005,7 @@ loop
     
     
     
-minus
+minus ; Checks if operation is subtraction
     ldr r4, r6, #1
     add r3, r3, #-1
     add r4, r3, r4
@@ -945,7 +1015,7 @@ minus
     brnzp performOperations_store
     
     
-times
+times ; Checks if operation is multiplication
     ldr r4, r6, #1
     add r3, r3, #-1
     add r4, r3, r4
@@ -954,7 +1024,7 @@ times
     jsrr r4
     brnzp performOperations_store
 
-division
+division ; Checks if operation is division
     ldr r4, r6, #1
     add r3, r3, #-1
     add r4, r3, r4
@@ -962,7 +1032,7 @@ division
     ld r4, performOperations_divide
     jsrr r4
     brnzp performOperations_store
-none
+none ; Operation is some other code. Simply skips the operation and stores 0 for its output
     and r3, r3, #0
     brnzp performOperations_store
     
@@ -971,11 +1041,7 @@ performOperations_store
     str r3, r6, #-1 ; stores output in output section of previous operation
     brnzp loop
     
-    
-    
-    
-    
-performOperations_endOfArray
+performOperations_endOfArray ; End of array has been reached
     add r6, r6, #-1 ; r6 points to output of last operation
     ldr r5, r6, #0 ; r5 stores the answer
     ld r7, performOperations_saveReturn
@@ -988,10 +1054,31 @@ performOperations_multiply .fill multiply
 performOperations_divide .fill divide
 
 
-
+;*********************display*********************************
+; Prints out an integer representation of the number. Displays
+; "MATH ERROR" if dividing by 0 was attempted
+;
+;R0 - Used by TRAP routines for displaying
+;R1 - Used to find ASCII value of rightmost character
+;R2 - Used to find ASCII value of rightmost character
+;R3 - Used to find ASCII value of rightmost character
+;R4 - Used to find ASCII value of rightmost character
+;R5 - Stores number to be displayed
+;R6 - Points to top of display stack
+;************************************************************
 display: ; Takes number in r5
 
-    st r7, display_saveReturn
+    st r7, display_saveReturn ; Checks if a math error occured (dividing by zero)
+    ldi r6, display_mathError
+    brz display_noError
+    and r0, r0, #0
+    add r0, r0, #10 ; Displays newline
+    trap x21
+    lea r0, display_errorText
+    trap x22
+    brnzp display_return
+    
+display_noError
     lea r6, display_stack ; Stack for storing numbers, since this function works from the right to the left
     add r6, r6, #1
     
@@ -1010,7 +1097,10 @@ display: ; Takes number in r5
     ld r0, display_dash
     trap x21
     
-    
+
+; Continually gets modulus of number divided by 10.
+; This is value of last character. Pushed to stack, then repeats until
+; the number is equal to 0
 display_loop 
     and r1, r1, #0
     and r2, r2, #0
@@ -1049,7 +1139,7 @@ display_loop
     
     
     add r6, r6, #-1
-display_print 
+display_print ; Prints characters, one-by-one
     ldr r0, r6, #0
     brz display_return; end of stack
     trap x21
@@ -1057,7 +1147,7 @@ display_print
     brnzp display_print
 
 
-display_return
+display_return ; Prints a newline and returns
     and r0, r0, #0
     add r0, r0, #10 ; Displays newline
     trap x21
@@ -1072,6 +1162,8 @@ display_dash .fill #45
 display_offset .fill x30
 display_equal .fill x3D
 display_space .fill x20
+display_mathError .fill xfcff
+display_errorText .stringz "MATH ERROR"
 display_stack .blkw x100
 
 
