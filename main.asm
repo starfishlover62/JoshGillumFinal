@@ -2,37 +2,27 @@
 ; Calculator
 
 .orig x3000
-jsr calculator ; will jump to subroutine for 16 bit calculator
+    
+ld r1, input ; Gets input from the user
+jsrr r1
+
+ld r1, parse ; Parses the input
+jsrr r1
+
+ld r1, perform ; Performs the operations
+jsrr r1
+
+ld r1, print ; Prints the results
+jsrr r1
+
 end halt
 
+input .fill getInput
+parse .fill parseString
+perform .fill performOperations
+print .fill display
+    
 
-calculator:
-    st r7, calculator_saveR7
-    
-    ld r6, inputAddr
-    jsrr r6
-
-    ld r6, parse
-    jsrr r6
-    
-    ld r1, perform
-    jsrr r1
-    
-    ld r1, print
-    jsrr r1
-    
-    
-    
-    ld r7, calculator_saveR7
-    ret
-    
-    calculator_saveR7 .blkw 1
-    one .fill #10
-    two .fill #3
-    inputAddr .fill getInput
-    parse .fill parseString
-    perform .fill performOperations
-    print .fill display
 
 addition:
     add r3, r1, r2
