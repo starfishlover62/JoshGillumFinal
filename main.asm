@@ -5,14 +5,7 @@
 jsr calculator ; will jump to subroutine for 16 bit calculator
 end halt
 
-.end
 
-.orig x3010 ; Settings
-prettyPrint? .fill x0000 ; adds commas to numbers greater than 999
-.end
-
-
-.orig x3020
 calculator:
     st r7, calculator_saveR7
     
